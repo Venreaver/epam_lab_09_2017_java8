@@ -56,9 +56,7 @@ public class Lambdas03Exercise {
     }
 
     private static String stringProdByStream(String s, int i) {
-        String[] array = new String[i];
-        Arrays.fill(array, s);
-        return Stream.of(array).collect(Collectors.joining());
+        return Stream.generate(() -> s).limit(i).collect(Collectors.joining());
     }
 
     @Test
@@ -86,9 +84,7 @@ public class Lambdas03Exercise {
     }
 
     private String stringSumWithDelimiterByStream(String s, int i) {
-        String[] array = new String[i];
-        Arrays.fill(array, s);
-        return Stream.of(array).collect(Collectors.joining("-"));
+        return Stream.generate(() -> s).limit(i).collect(Collectors.joining("-"));
     }
 
     @Test
