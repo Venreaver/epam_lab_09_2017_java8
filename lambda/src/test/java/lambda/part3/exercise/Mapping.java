@@ -15,7 +15,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
-
+ 
 @SuppressWarnings({"WeakerAccess"})
 public class Mapping {
 
