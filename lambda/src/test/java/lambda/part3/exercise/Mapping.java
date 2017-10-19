@@ -194,7 +194,6 @@ public class Mapping {
         }
     }
 
-    // * LazyFlatMapHelper: но это неточно :D
     private static class LazyFlatMapHelper2<T, R> {
         private final List<T> list;
         private final Function<T, List<R>> mapper;
@@ -225,7 +224,6 @@ public class Mapping {
 
 
     private static class LazyFlatMapHelper3<T, R> {
-
         private final List<T> list;
         private final Function<T, List<R>> mapper;
 
