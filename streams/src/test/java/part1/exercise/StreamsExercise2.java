@@ -214,7 +214,6 @@ public class StreamsExercise2 {
                         Collectors.collectingAndThen(Collectors.maxBy(Comparator.comparing(EmployerPersonWithYears::getDuration)),
                                 elem -> elem.get().getPerson())));
 
-
         Map<String, Person> expected = new HashMap<>();
         expected.put("epam", new Person("John", "White", 28));
         expected.put("google", new Person("John", "Galt", 29));
