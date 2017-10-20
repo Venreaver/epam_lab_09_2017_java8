@@ -32,41 +32,51 @@ import static java.util.stream.Collectors.toMap;
 public class FutureBenchmark {
 
     @Param({"400", "4000", "40000"})
-    public int requestCount;
+    public int requestCount = 10;
 
     @Param({"10000"})
-    public int employeesCount;
+    public int employeesCount = 10;
 
-    private SlowBlockingDb<Employer> blockingEmployers;
-    private SlowBlockingDb<Position> blockingPositions;
-    private SlowBlockingDb<Employee> blockingEmployee;
-    private ExecutorService blockingExecutorService;
-    private List<String> requests;
+    private SlowBlockingDb<Employer> blockingEmployers; // база работодателей
+    private SlowBlockingDb<Position> blockingPositions; // база позиций
+    private SlowBlockingDb<Employee> blockingEmployee;  // база сотрудников
+    private ExecutorService blockingExecutorService;    // пулл
+    private List<String> requests;                      // запросы
+
+    public static void main(String[] args) {
+        FutureBenchmark fb = new FutureBenchmark();
+        fb.setup();
+        int n = 0;
+    }
 
     @Setup
     public void setup() {
-        blockingEmployers = createDbForEnum(Employer.values());
-        blockingPositions = createDbForEnum(Position.values());
-
+        blockingEmployers = createDbForEnum(Employer.values()); // создаем базу работодателей
+        blockingPositions = createDbForEnum(Position.values()); // создаем базу позиций
+        // создаем Map работников: не совсем понятно, как тут работает merge в toMap                !!
         Map<String, Employee> employeeMap = Generator.generateEmployeeList(employeesCount)
                                                      .stream()
+                                                      // merge: старое значение возвращается?       !!
                                                      .collect(toMap(Employee::toString, Function.identity(), (e1, e2) -> e1));
-        blockingEmployee = new SlowBlockingDb<>(employeeMap);
-
+        blockingEmployee = new SlowBlockingDb<>(employeeMap);   // создаем базу работников
+        // вынимаем массив ключей из employeeMap -> Employee::toString
         String[] keys = employeeMap.keySet().toArray(new String[0]);
+        // генерируем список запросов: по сути перемешиваем ключи?
         requests = Stream.generate(() -> keys[ThreadLocalRandom.current().nextInt(keys.length)])
                          .limit(requestCount * 10)
                          .distinct()
                          .limit(requestCount)
                          .collect(toList());
-
+        // создаем пул потоков
         blockingExecutorService = Executors.newCachedThreadPool();
     }
 
+    // создание БД в виде SlowBlockingDb, там где-то внутри зарыта Map
     private static <T extends Enum<T>> SlowBlockingDb<T> createDbForEnum(T[] values) {
         return new SlowBlockingDb<>(Arrays.stream(values).collect(toMap(T::name, Function.identity())));
     }
 
+    // закрытие всего, что мы насоздавали
     @TearDown
     public void tearDown() throws Exception {
         blockingExecutorService.shutdownNow();
@@ -78,6 +88,7 @@ public class FutureBenchmark {
 
     @Benchmark
     public void blockingProcessing(Blackhole bh) {
+        // получаем список Future
         List<Future<?>> futures = requests.stream()
                                           .map(requestToFuture(bh, this::blockingGetTypedEmployee))
                                           .collect(toList());
@@ -91,21 +102,27 @@ public class FutureBenchmark {
         }
     }
 
+    // функция, которая переводит из String-ключа в TypedEmployee
     private TypedEmployee blockingGetTypedEmployee(String key) {
         try {
+            // по ключу вынимаем Employee
             Employee employee = blockingEmployee.get(key);
             List<TypedJobHistoryEntry> entries = employee.getJobHistory()
                                                          .stream()
+                                                          // типизируем JobHistoryEntry для всех
                                                          .map(this::typifyJobHistoryEntry)
                                                          .collect(toList());
+            // возвращаем типизированного Employee, т.е. Employee со списком TypedJobHistoryEntry
             return new TypedEmployee(employee.getPerson(), entries);
         } catch (ExecutionException | InterruptedException ex) {
             throw new RuntimeException(ex);
         }
     }
 
+    // типизируем JobHistoryEntry
     private TypedJobHistoryEntry typifyJobHistoryEntry(JobHistoryEntry entry) {
         try {
+            // создаем TypedJobHistoryEntry на основе значений, полученных по ключу из БД Позиций и Работодателей + Duration
             return new TypedJobHistoryEntry(blockingPositions.get(entry.getPosition()),
                                             blockingEmployers.get(entry.getEmployer()),
                                             entry.getDuration());
@@ -114,6 +131,8 @@ public class FutureBenchmark {
         }
     }
 
+    // уточнить еще раз, зачем нам нужна Blackhole                                                                          !!
+    // принимает Blackhole, функцию, которая переводит из String в TypedEmployee, возвращает функцию, которая переводит из String в Future
     private Function<String, Future<?>> requestToFuture(Blackhole blackhole, Function<String, TypedEmployee> executorRequest) {
         return request -> blockingExecutorService.submit(() -> blackhole.consume(executorRequest.apply(request)));
     }
