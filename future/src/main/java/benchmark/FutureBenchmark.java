@@ -55,8 +55,6 @@ public class FutureBenchmark {
                                                       // merge: старое значение возвращается?
                                                      .collect(toMap(Employee::toString, Function.identity(), (e1, e2) -> e1));
         blockingEmployee = new SlowBlockingDb<>(employeeMap);   // создаем базу работников
-//?!
-        // почему кладем new String[0]?
         // вынимаем массив ключей из employeeMap -> Employee::toString
         String[] keys = employeeMap.keySet().toArray(new String[0]);
         // генерируем список запросов: по сути перемешиваем ключи?
