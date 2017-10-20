@@ -53,10 +53,12 @@ public class FutureBenchmark {
     public void setup() {
         blockingEmployers = createDbForEnum(Employer.values()); // создаем базу работодателей
         blockingPositions = createDbForEnum(Position.values()); // создаем базу позиций
-        // создаем Map работников: не совсем понятно, как тут работает merge в toMap                !!
+//?!
+        // создаем Map работников: не совсем понятно, как тут работает merge в toMap
         Map<String, Employee> employeeMap = Generator.generateEmployeeList(employeesCount)
                                                      .stream()
-                                                      // merge: старое значение возвращается?       !!
+//?!
+                                                      // merge: старое значение возвращается?
                                                      .collect(toMap(Employee::toString, Function.identity(), (e1, e2) -> e1));
         blockingEmployee = new SlowBlockingDb<>(employeeMap);   // создаем базу работников
         // вынимаем массив ключей из employeeMap -> Employee::toString
@@ -92,7 +94,7 @@ public class FutureBenchmark {
         List<Future<?>> futures = requests.stream()
                                           .map(requestToFuture(bh, this::blockingGetTypedEmployee))
                                           .collect(toList());
-
+        // в цикле получаем от всех Future get
         for (Future<?> future : futures) {
             try {
                 future.get();
@@ -107,6 +109,7 @@ public class FutureBenchmark {
         try {
             // по ключу вынимаем Employee
             Employee employee = blockingEmployee.get(key);
+            // создаем список TypedJobHistoryEntry для сотрудника
             List<TypedJobHistoryEntry> entries = employee.getJobHistory()
                                                          .stream()
                                                           // типизируем JobHistoryEntry для всех
@@ -131,7 +134,8 @@ public class FutureBenchmark {
         }
     }
 
-    // уточнить еще раз, зачем нам нужна Blackhole                                                                          !!
+//?!
+    // уточнить еще раз, зачем нам нужна Blackhole
     // принимает Blackhole, функцию, которая переводит из String в TypedEmployee, возвращает функцию, которая переводит из String в Future
     private Function<String, Future<?>> requestToFuture(Blackhole blackhole, Function<String, TypedEmployee> executorRequest) {
         return request -> blockingExecutorService.submit(() -> blackhole.consume(executorRequest.apply(request)));
@@ -139,10 +143,11 @@ public class FutureBenchmark {
 
     @Benchmark
     public void futureProcessing(Blackhole bh) {
+        // получаем список Future
         List<Future<?>> futures = requests.stream()
                                           .map(requestToFuture(bh, this::futureGetTypedEmployee))
                                           .collect(toList());
-
+        // в цикле получаем от всех Future get
         for (Future<?> future : futures) {
             try {
                 future.get();
@@ -152,25 +157,32 @@ public class FutureBenchmark {
         }
     }
 
+    // функция, которая переводит из String-ключа в TypedEmployee
     private TypedEmployee futureGetTypedEmployee(String key) {
         try {
+            // по ключу вынимаем Employee
             Employee employee = blockingEmployee.get(key);
-
+            // созддаем Map<String, Future> с типизированым Future для работодателей и позиций
             Map<String, Future<Employer>> employers = new HashMap<>();
             Map<String, Future<Position>> positions = new HashMap<>();
-
+//?!
+            // пробегаемся по getJobHistory Employee и для каждой записи вносим данные в вышесозданные Map
+            // Мы заранее подготовили Future для работодателей и позиций
+            // Это ли позволяет сократить время обработки запросов в сравнении с blockingProcessing?
             for (JobHistoryEntry entry : employee.getJobHistory()) {
                 employers.put(entry.getEmployer(), blockingEmployers.getFutureDb().get(entry.getEmployer()));
                 positions.put(entry.getPosition(), blockingPositions.getFutureDb().get(entry.getPosition()));
             }
-
+            // создаем список TypedJobHistoryEntry для сотрудника
             List<TypedJobHistoryEntry> jobHistoryEntries = employee.getJobHistory()
                                                                    .stream()
+                                                                    // здесь уже с помощью заготовленных Map с Future типизируем все JobHistoryEntry
                                                                    .map(entry -> new TypedJobHistoryEntry(
                                                                                         getOrNull(positions.get(entry.getPosition())),
                                                                                         getOrNull(employers.get(entry.getEmployer())),
                                                                                         entry.getDuration()))
                                                                    .collect(toList());
+            // возвращаем типизированного Employee, т.е. Employee со списком TypedJobHistoryEntry
             return new TypedEmployee(employee.getPerson(), jobHistoryEntries);
         } catch (ExecutionException | InterruptedException ex) {
             throw new RuntimeException(ex);
@@ -179,10 +191,11 @@ public class FutureBenchmark {
 
     @Benchmark
     public void completableProcessing(Blackhole bh) {
+        // получаем список Future
         List<Future<?>> futures = requests.stream()
                                           .map(request -> completableFutureGetTypedEmployee(request).thenAccept(bh::consume))
                                           .collect(toList());
-
+        // в цикле получаем от всех Future get
         for (Future<?> future : futures) {
             try {
                 future.get();
@@ -230,5 +243,4 @@ public class FutureBenchmark {
             return null;
         }
     }
-
 }
