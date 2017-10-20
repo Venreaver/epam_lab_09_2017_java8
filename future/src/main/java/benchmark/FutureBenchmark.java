@@ -32,22 +32,16 @@ import static java.util.stream.Collectors.toMap;
 public class FutureBenchmark {
 
     @Param({"400", "4000", "40000"})
-    public int requestCount = 10;
+    public int requestCount;
 
     @Param({"10000"})
-    public int employeesCount = 10;
+    public int employeesCount;
 
     private SlowBlockingDb<Employer> blockingEmployers; // база работодателей
     private SlowBlockingDb<Position> blockingPositions; // база позиций
     private SlowBlockingDb<Employee> blockingEmployee;  // база сотрудников
     private ExecutorService blockingExecutorService;    // пулл
     private List<String> requests;                      // запросы
-
-    public static void main(String[] args) {
-        FutureBenchmark fb = new FutureBenchmark();
-        fb.setup();
-        int n = 0;
-    }
 
     @Setup
     public void setup() {
@@ -61,6 +55,8 @@ public class FutureBenchmark {
                                                       // merge: старое значение возвращается?
                                                      .collect(toMap(Employee::toString, Function.identity(), (e1, e2) -> e1));
         blockingEmployee = new SlowBlockingDb<>(employeeMap);   // создаем базу работников
+//?!
+        // почему кладем new String[0]?
         // вынимаем массив ключей из employeeMap -> Employee::toString
         String[] keys = employeeMap.keySet().toArray(new String[0]);
         // генерируем список запросов: по сути перемешиваем ключи?
@@ -167,7 +163,7 @@ public class FutureBenchmark {
             Map<String, Future<Position>> positions = new HashMap<>();
 //?!
             // пробегаемся по getJobHistory Employee и для каждой записи вносим данные в вышесозданные Map
-            // Мы заранее подготовили Future для работодателей и позиций
+            // Мы заранее подготовили Future для работодателей и позиций с помощью обращения к БД, которая возвращает Future
             // Это ли позволяет сократить время обработки запросов в сравнении с blockingProcessing?
             for (JobHistoryEntry entry : employee.getJobHistory()) {
                 employers.put(entry.getEmployer(), blockingEmployers.getFutureDb().get(entry.getEmployer()));
@@ -205,21 +201,37 @@ public class FutureBenchmark {
         }
     }
 
+    // функция, которая переводит из String-ключа в TypedEmployee
     private CompletableFuture<TypedEmployee> completableFutureGetTypedEmployee(String key) {
+        // создаем немного другую базу сотрудников, такую, которая будет уже SlowCompletableFutureDb,
+        // т.е. достаем то, что внутри blockingEmployee.getFutureDb()
         SlowCompletableFutureDb<Employee> employeeDb = blockingEmployee.getFutureDb().getCompletableFutureDb();
+        // достаем из базы сотрудника
         CompletableFuture<Employee> employee = employeeDb.get(key);
+        // просим CompletableFuture сделать thenCompose
+        // по сути thenCompose это тоже самое, что и thenApply
+        // обработка происходит с помощью asyncToTyped(Employee employee)
         return employee.thenCompose(this::asyncToTyped);
     }
 
+    // функция трансформирует Employee в CompletionStage<TypedEmployee>
     private CompletionStage<TypedEmployee> asyncToTyped(Employee employee) {
+        // создаем список TypedJobHistoryEntry для сотрудника, применяя asyncToTyped(JobHistoryEntry entry)
         List<CompletableFuture<TypedJobHistoryEntry>> jobHistoryFutures = employee.getJobHistory()
                                                                                   .stream()
                                                                                   .map(this::asyncToTyped)
                                                                                   .collect(toList());
-
+//?!
+        // allOf возвращает результат комбинации всех CompletableFuture, которые были в него переданы:
+        // мы туда кладем массив CompletableFuture, который получается из jobHistoryFutures
+        // дальше мы делаем thenApply, то есть применяем функцию, которая из каждого CompletableFuture<TypedJobHistoryEntry>
+        // собирает список типизированных JobHistoryEntry
+        // затем этот список используется для создания типизированного Employee
         return CompletableFuture.allOf(jobHistoryFutures.toArray(new CompletableFuture[0]))
                                 .thenApply(x -> {
                                     List<TypedJobHistoryEntry> jobHistory = jobHistoryFutures.stream()
+                                                                                             // здесь мы вытаскиваем из CompletableFuture<TypedJobHistoryEntry>
+                                                                                             // TypedJobHistoryEntry или null
                                                                                              .map(FutureBenchmark::getOrNull)
                                                                                              .collect(toList());
 
@@ -227,10 +239,15 @@ public class FutureBenchmark {
                                 });
     }
 
+    // функция трансформирует JobHistoryEntry в CompletableFuture<TypedJobHistoryEntry>
     private CompletableFuture<TypedJobHistoryEntry> asyncToTyped(JobHistoryEntry entry) {
+        // создаем БД для работодателей и позиций, такие БД достаем из xxx.getFutureDb()
+        // возвращать эти ДБ будут CompletableFuture
         SlowCompletableFutureDb<Employer> employersDb = blockingEmployers.getFutureDb().getCompletableFutureDb();
         SlowCompletableFutureDb<Position> positionDb = blockingPositions.getFutureDb().getCompletableFutureDb();
-
+        // получаем из employersDb по ключу работодателя
+        // затем результат комбинируем с тем, что получаем из positionDb по ключу позиции
+        // результатом комбинации выступает TypedJobHistoryEntry(работодатель, позиция, duration из изначального entry)
         return employersDb.get(entry.getEmployer())
                           .thenCombine(positionDb.get(entry.getPosition()), (e, p) -> new TypedJobHistoryEntry(p, e, entry.getDuration()));
     }
