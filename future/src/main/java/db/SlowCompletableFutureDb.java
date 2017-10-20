@@ -9,7 +9,6 @@ import java.util.StringJoiner;
 import java.util.concurrent.*;
 
 public class SlowCompletableFutureDb<T> implements DataStorage<String, T>, Closeable {
-
     private volatile Map<String, T> values;
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private TimeUnit timeoutUnits;
@@ -25,6 +24,7 @@ public class SlowCompletableFutureDb<T> implements DataStorage<String, T>, Close
         this(values, 100, TimeUnit.MILLISECONDS);
     }
 
+    // получаем типизированный CompletableFuture в ответ на get-запросы
     public CompletableFuture<T> get(String key) {
         T value = values.get(key);
         CompletableFuture<T> result = new CompletableFuture<>();
@@ -35,10 +35,12 @@ public class SlowCompletableFutureDb<T> implements DataStorage<String, T>, Close
         return result;
     }
 
+    // заменяем старые данные на новые
     public void setValues(Map<String, T> values) {
         this.values = new HashMap<>(values);
     }
 
+    // закрытие всего
     @Override
     public void close() throws IOException {
         try {

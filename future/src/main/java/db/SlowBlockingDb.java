@@ -13,14 +13,17 @@ public class SlowBlockingDb<T> implements Closeable {
         slowFutureDb = new SlowFutureDb<>(values);
     }
 
+    // получаем элемент типа T в ответ на get-запросы
     public T get(String key) throws ExecutionException, InterruptedException {
         return slowFutureDb.get(key).get();
     }
 
+    // получаем базу, которая возвращает типизированный Future в ответ на get-запросы
     public SlowFutureDb<T> getFutureDb() {
         return slowFutureDb;
     }
 
+    // закрываем все
     @Override
     public void close() throws IOException {
         slowFutureDb.close();
