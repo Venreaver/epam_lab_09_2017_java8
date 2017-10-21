@@ -47,12 +47,12 @@ public class FutureBenchmark {
     public void setup() {
         blockingEmployers = createDbForEnum(Employer.values()); // создаем базу работодателей
         blockingPositions = createDbForEnum(Position.values()); // создаем базу позиций
-//?!
-        // создаем Map работников: не совсем понятно, как тут работает merge в toMap
+
+        // создаем Map работников
         Map<String, Employee> employeeMap = Generator.generateEmployeeList(employeesCount)
                                                      .stream()
-//?!
-                                                      // merge: старое значение возвращается?
+                                                     // merge: старое значение возвращается
+                                                     // Ответ: если есть левое и правое, то возвращается мерджем всегда левое
                                                      .collect(toMap(Employee::toString, Function.identity(), (e1, e2) -> e1));
         blockingEmployee = new SlowBlockingDb<>(employeeMap);   // создаем базу работников
         // вынимаем массив ключей из employeeMap -> Employee::toString
@@ -128,9 +128,9 @@ public class FutureBenchmark {
         }
     }
 
-//?!
-    // уточнить еще раз, зачем нам нужна Blackhole
+    // уточнить еще раз, зачем нам нужна Blackhole. Ответ: чтобы jit не оптимизировала это
     // принимает Blackhole, функцию, которая переводит из String в TypedEmployee, возвращает функцию, которая переводит из String в Future
+    // хорошо бы, чтобы возвращало не Void-типизированое Future, а типизированным работником
     private Function<String, Future<?>> requestToFuture(Blackhole blackhole, Function<String, TypedEmployee> executorRequest) {
         return request -> blockingExecutorService.submit(() -> blackhole.consume(executorRequest.apply(request)));
     }
