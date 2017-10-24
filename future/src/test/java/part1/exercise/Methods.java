@@ -103,9 +103,9 @@ public class Methods {
 
     @Test
     public void foreachMapFlatMap() {
-        CompletableFuture<Integer> future = null;
-        CompletableFuture<Integer> future1 = null;
-        CompletableFuture<String> future2 = null;
+        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> Integer.parseInt("42"));
+        CompletableFuture<Integer> future1 = CompletableFuture.completedFuture(2);
+        CompletableFuture<String> future2 = new CompletableFuture<>();
 
         // forEach
         CompletableFuture<Void> thenAccept = future.thenAccept(System.out::println);
@@ -125,9 +125,9 @@ public class Methods {
 
     @Test
     public void allAnyOf() {
-        CompletableFuture<Integer> future = null;
-        CompletableFuture<Integer> future1 = null;
-        CompletableFuture<String> future2 = null;
+        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> Integer.parseInt("42"));
+        CompletableFuture<Integer> future1 = CompletableFuture.completedFuture(2);
+        CompletableFuture<String> future2 = new CompletableFuture<>();
 
         // All of
         CompletableFuture<Void> allOf = CompletableFuture.allOf(future, future1, future2);
