@@ -47,7 +47,7 @@ public class StreamsExample {
         //      .allMatch(Predicate<T>)         // все совпадения, заканчивается, когда закончится стрим, либо false
         //      .anyMatch(Predicate<T>)         // boolean хотя бы один элемент
         //      .noneMatch(Predicate<T>)        // boolean ни одного подходящего
-        //      .reduce(BinaryOperator<T>)      // коммутативная операция
+        //      .reduce(BinaryOperator<T>)      // нужно класть ассоциативные операции сюда
         //      .collect(Collector<T, A, R>)    //
         //      .count()
         //      .findAny()
