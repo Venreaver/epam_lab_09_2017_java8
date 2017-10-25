@@ -141,6 +141,7 @@ public class OtherClasses {
         return name -> lastName -> age -> pf.create(name, lastName, age);
     }
 
+    @Test
     public void currying() {
         // (String, String, int) -> Person
         // тоже самое: final PersonFactory factory = (n, ln, a) -> new Person(n, ln, a);
@@ -152,6 +153,8 @@ public class OtherClasses {
         final Person father = doe.apply("Bob", 33);
         final Person son = doe.apply("John", 33);
         // String -> String -> int -> Person
+        Function<String, Function<String, IntFunction<Person>>> curried1 = curry(Person::new);
+        System.out.println(curried1.apply("J").apply("B").apply(28));
         final Function<String, Function<String, IntFunction<Person>>> curried = name -> (lastName -> age -> factory.create(name, lastName, age));
         final Function<String, IntFunction<Person>> john = curried.apply("John");
         final IntFunction<Person> johnDoeWithoutAge = john.apply("Doe");
