@@ -70,8 +70,7 @@ public class StreamsExercise2 {
         List<Employee> employees = getEmployees();
         Map<String, Set<Person>> result = employees.stream()
                 .flatMap(e -> e.getJobHistory().stream()
-                        .map(JobHistoryEntry::getEmployer)
-                        .map(empl -> new EmployerPersonPair(empl, e.getPerson())))
+                        .map(j -> new EmployerPersonPair(j.getEmployer(), e.getPerson())))
                 .collect(Collectors.groupingBy(EmployerPersonPair::getEmployer,
                         Collectors.mapping(EmployerPersonPair::getPerson, Collectors.toSet())));
 
