@@ -14,7 +14,6 @@ import java.util.function.Predicate;
 import static org.junit.Assert.assertEquals;
 
 public class Filtering {
-
     @Test
     public void filtering0() {
         final List<Employee> employees =
